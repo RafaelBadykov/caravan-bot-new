@@ -18,6 +18,7 @@ public class BotConfig {
     private String webhookPath;
     private String botUserName;
     private String botToken;
+    private String apiToken;
 
     @Bean
     public CaravanTelegramBot CaravanBot(){
@@ -27,6 +28,7 @@ public class BotConfig {
         caravanTelegramBot.setWebhookPath(webhookPath);
         caravanTelegramBot.setBotUserName(botUserName);
         caravanTelegramBot.setBotToken(botToken);
+        caravanTelegramBot.setApiToken(apiToken);
 
         return caravanTelegramBot;
     }
