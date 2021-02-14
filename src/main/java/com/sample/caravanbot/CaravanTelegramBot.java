@@ -1,6 +1,7 @@
 package com.sample.caravanbot;
 
 import com.sample.caravanbot.model.Film;
+import com.truedev.kinoposk.api.model.movie.Common;
 import com.truedev.kinoposk.api.model.search.movie.keyword.SearchItem;
 import com.truedev.kinoposk.api.model.search.movie.keyword.SearchResult;
 import com.truedev.kinoposk.api.service.KinopoiskApiService;
@@ -19,10 +20,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 //TODO(refactor(create new classes/services...) + add keyboard menu)
 public class CaravanTelegramBot extends TelegramWebhookBot {
+
+    private static final Pattern PATTERN = Pattern.compile("^/\\d+$");
 
     private String webhookPath;
     private String botUserName;
@@ -55,12 +59,13 @@ public class CaravanTelegramBot extends TelegramWebhookBot {
         if (message != null && message.hasText()) {
             try {
                 //TODO(придумать, как разграничить логику или сделать что-то такое https://imgur.com/a/PKVbZlZ)
-                if ("/start".equals(message.getText())) {
+                String messageText = message.getText();
+                if ("/start".equals(messageText)) {
                     printMessage(message, "Введите название филмьма");
                 } else {
                     List<Film> films = getFilms(message);
                     if (films.isEmpty()) {
-                        printMessage(message, String.format("По запросу \"%s\" ничего не найдено.", message.getText()));
+                        printMessage(message, String.format("По запросу \"%s\" ничего не найдено.", messageText));
                     } else {
                         SendMessage sendMessage = new SendMessage(message.getChatId(), Strings.join(films, '\n'));
                         sendMessage.setReplyMarkup(getInlineKeyboardMarkup(films));
@@ -71,8 +76,26 @@ public class CaravanTelegramBot extends TelegramWebhookBot {
             } catch (TelegramApiException e) {
                 e.printStackTrace();
             }
+        } else if (update.hasCallbackQuery()) {
+            try {
+                if (PATTERN.matcher(update.getCallbackQuery().getData()).matches()) {
+                    //TODO (Update message)
+                    String fimId = update.getCallbackQuery().getData().substring(1);
+                    com.truedev.kinoposk.api.model.movie.Film film = getFilmById(fimId);
+                    Common data = film.getData();
+                    execute(new SendMessage().setText(data.getNameRu() + "\n" + data.getDescription())
+                            .setChatId(update.getCallbackQuery().getMessage().getChatId()));
+                }
+            } catch (TelegramApiException e) {
+                e.printStackTrace();
+            }
         }
         return null;
+    }
+
+    private com.truedev.kinoposk.api.model.movie.Film getFilmById(String filmId) {
+        KinopoiskApiService kinopoiskApiService = new KinopoiskApiService(apiToken, 15000);
+        return kinopoiskApiService.getFilm(Integer.parseInt(filmId), new ArrayList<>()).getOrNull();
     }
 
     private InlineKeyboardMarkup getInlineKeyboardMarkup(List<Film> films) {
@@ -83,8 +106,8 @@ public class CaravanTelegramBot extends TelegramWebhookBot {
         //TODO(В запросе 20 значений всего, можно ещё через page менять, но и 20, мне кажется, норм, но надо
         // добавить пагинацию, потмоу что 8 кнопок максимум, но и 8 кнопок перебор /)
         for (int i = 0; films.size() > i && i < 5; i++) {
-            keyboardRow.add(new InlineKeyboardButton().setText(String.valueOf(films.get(i).getKinopoiskId()))
-                    .setCallbackData("not implemented"));
+            keyboardRow.add(new InlineKeyboardButton().setText(String.valueOf(i + 1))
+                    .setCallbackData("/" + films.get(i).getKinopoiskId()));
         }
 
         inlineKeyboardMarkup.setKeyboard(Collections.singletonList(keyboardRow));
@@ -112,7 +135,7 @@ public class CaravanTelegramBot extends TelegramWebhookBot {
     }
 
     private Film getFilm(SearchItem searchItem, int index) {
-        String telegramString = String.format("%d. %s\\%s [%sг.]", index, searchItem.getNameRu(), searchItem.getNameEn(), searchItem.getYear());
+        String telegramString = String.format("%d. %s\\%s [%sг.] /%s", index, searchItem.getNameRu(), searchItem.getNameEn(), searchItem.getYear(), searchItem.getKinopoiskId());
         return new Film(index, searchItem.getKinopoiskId(), telegramString, searchItem.getGenres());
     }
 
