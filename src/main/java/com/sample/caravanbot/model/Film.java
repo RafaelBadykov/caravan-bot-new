@@ -1,6 +1,7 @@
 package com.sample.caravanbot.model;
 
 import com.truedev.kinoposk.api.model.common.Genre;
+import lombok.Getter;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
 import java.util.List;
@@ -10,34 +11,17 @@ import java.util.List;
  * пока просто для тестов такой класс сделал
  *
  * */
+@Getter
 public class Film {
 
-    private final int id;
-    private final int kinopoiskId;
+    private final int internalId;
     private final String telegramString;
     private final List<Genre> genres;
 
-    public Film(int id, int kinopoiskId, String telegramString, List<Genre> genres) {
-        this.id = id;
-        this.kinopoiskId = kinopoiskId;
+    public Film(int internalId, String telegramString, List<Genre> genres) {
+        this.internalId = internalId;
         this.telegramString = telegramString;
         this.genres = genres;
-    }
-
-    public int getId() {
-        return id;
-    }
-
-    public int getKinopoiskId() {
-        return kinopoiskId;
-    }
-
-    public String getTelegramString() {
-        return telegramString;
-    }
-
-    public List<Genre> getGenres() {
-        return genres;
     }
 
     /**
