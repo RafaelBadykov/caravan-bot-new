@@ -9,6 +9,8 @@ import org.springframework.context.annotation.Configuration;
 import org.telegram.telegrambots.bots.DefaultBotOptions;
 import org.telegram.telegrambots.meta.ApiContext;
 
+import java.io.FileNotFoundException;
+
 @Getter
 @Setter
 @Configuration
@@ -21,7 +23,7 @@ public class BotConfig {
     private String apiToken;
 
     @Bean
-    public CaravanTelegramBot CaravanBot(){
+    public CaravanTelegramBot CaravanBot() throws FileNotFoundException {
         DefaultBotOptions options = ApiContext.getInstance(DefaultBotOptions.class);
 
         CaravanTelegramBot caravanTelegramBot = new CaravanTelegramBot(options);
