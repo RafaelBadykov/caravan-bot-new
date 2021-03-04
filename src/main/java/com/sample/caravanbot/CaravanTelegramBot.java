@@ -277,16 +277,12 @@ public class CaravanTelegramBot extends TelegramWebhookBot {
     }
 
     private String getGenresIdsAsString() {
-        List<String> currentFilmGenres = lastClickedFilm.getGenreNames();
-        List<String> genreStrings = new ArrayList<>();
-        Integer genreId;
-        for (String genre : currentFilmGenres) {
-            genreId = genres.get(genre);
-            if (genreId != null) {
-                genreStrings.add(String.valueOf(genreId));
-            }
-        }
-        return String.join("%2C", genreStrings);
+        return lastClickedFilm
+                .getGenreNames()
+                .stream()
+                .mapToInt(genre -> genres.get(genre))
+                .mapToObj(String::valueOf)
+                .collect(Collectors.joining("%2C"));
     }
 
     private boolean isNotSame(FilmEntity similarFilm, AtomicInteger atomicInteger) {
