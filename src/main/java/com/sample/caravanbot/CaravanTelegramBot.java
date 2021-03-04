@@ -1,25 +1,14 @@
 package com.sample.caravanbot;
 
-import com.google.gson.Gson;
-import com.google.gson.stream.JsonReader;
-import com.sample.caravanbot.model.Film;
-import com.sample.caravanbot.model.FilmExtended;
-import com.sample.caravanbot.model.Genres;
-import com.sample.caravanbot.model.SimilarResult;
-import com.sample.caravanbot.util.FilmExtendedMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sample.caravanbot.model.FilmEntity;
+import com.sample.caravanbot.model.GenreEntity;
 import com.sample.caravanbot.util.FilmMapper;
-import com.truedev.kinoposk.api.model.common.Genre;
+import com.sample.caravanbot.util.KinopoiskApiServiceForSimilarFilms;
 import com.truedev.kinoposk.api.model.search.movie.keyword.SearchItem;
 import com.truedev.kinoposk.api.model.search.movie.keyword.SearchResult;
 import com.truedev.kinoposk.api.service.KinopoiskApiService;
 import lombok.SneakyThrows;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.client.methods.RequestBuilder;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
 import org.telegram.telegrambots.bots.DefaultBotOptions;
 import org.telegram.telegrambots.bots.TelegramWebhookBot;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
@@ -31,13 +20,10 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMa
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -46,7 +32,7 @@ public class CaravanTelegramBot extends TelegramWebhookBot {
     private static final Pattern PATTERN_ID = Pattern.compile("^\\d+$");
     private static final Pattern PATTERN_SIMILAR = Pattern.compile("s/\\d+$");
     private static final Pattern PATTERN_DETAILED = Pattern.compile("d/\\d+$");
-    private Genres genres;
+    private Map<String, Integer> genres;
 
     private String webhookPath;
     private String botUserName;
@@ -59,7 +45,7 @@ public class CaravanTelegramBot extends TelegramWebhookBot {
     // чтобы норм старые отправленные сообщения работали,
     // или удалять старые, как вариант")
     private Message answer;
-    private FilmExtended lastClickedFilm;
+    private FilmEntity lastClickedFilm;
 
     public CaravanTelegramBot(DefaultBotOptions options) {
         super(options);
@@ -107,21 +93,21 @@ public class CaravanTelegramBot extends TelegramWebhookBot {
         } else if (update.hasCallbackQuery()) {
             String callbackData = update.getCallbackQuery().getData();
             if (PATTERN_ID.matcher(callbackData).matches()) {
-                FilmExtended film = getFilmById(callbackData);
+                FilmEntity film = getFilmById(callbackData);
                 SendMessage sendMessage = new SendMessage()
-                        .setText(film.toString())
+                        .setText(film.getExtendedToString())
                         .setReplyMarkup(getFilmKeyboardMarkup(callbackData));
                 lastClickedFilm = film;
-                this.answer = printMessage(sendMessage);
+                answer = printMessage(sendMessage);
             } else if (PATTERN_DETAILED.matcher(callbackData).matches()) {
                 EditMessageText editMessageText = new EditMessageText()
                         .setChatId(answer.getChatId())
                         .setMessageId(answer.getMessageId())
-                        .setReplyMarkup(getFilmKeyboardMarkup(lastClickedFilm.getFilmId()))
+                        .setReplyMarkup(getFilmKeyboardMarkup(lastClickedFilm.getKinopoiskId()))
                         .setText(lastClickedFilm.getExtendedDescription());
                 execute(editMessageText);
             } else if (PATTERN_SIMILAR.matcher(callbackData).matches()) {
-                List<Film> films = getFilmsByFilters(lastClickedFilm.getGenres());
+                List<FilmEntity> films = getFilmsByFilters();
                 StringBuilder sb = new StringBuilder();
                 films.forEach(film -> sb.append(film).append("\n\n"));
                 SendMessage sendMessage = new SendMessage()
@@ -161,9 +147,17 @@ public class CaravanTelegramBot extends TelegramWebhookBot {
     }
 
     private void searchFilm(String filmName) {
-        List<Film> films = getFilmsByKeyword(filmName);
+        List<FilmEntity> films = getFilmsByKeyword(filmName);
         if (films.size() == 0) {
             printMessage(String.format("По вашему запросу \"%s\" ничего не найдено.", filmName));
+        } else if (films.size() == 1) {
+            String filmId = String.valueOf(films.get(0).getKinopoiskId());
+            FilmEntity film = getFilmById(filmId);
+            SendMessage sendMessage = new SendMessage()
+                    .setText(film.getExtendedToString())
+                    .setReplyMarkup(getFilmKeyboardMarkup(filmId));
+            lastClickedFilm = film;
+            answer = printMessage(sendMessage);
         } else {
             StringBuilder sb = new StringBuilder();
             films.forEach(film -> sb.append(film).append("\n\n"));
@@ -176,15 +170,15 @@ public class CaravanTelegramBot extends TelegramWebhookBot {
         }
     }
 
-    private void initDefaults(Message message) throws FileNotFoundException {
+    private void initDefaults(Message message) throws IOException {
         if (chatId == -1) {
             chatId = message.getChatId();
         }
 
         if (genres == null) {
-            Gson gson = new Gson();
-            JsonReader reader = new JsonReader(new FileReader("src/genres.json"));
-            genres = gson.fromJson(reader, Genres.class);
+            ObjectMapper mapper = new ObjectMapper();
+            GenreEntity[] genres = mapper.readValue(new FileReader("src/genres.json"), GenreEntity[].class);
+            this.genres = Arrays.stream(genres).collect(Collectors.toMap(GenreEntity::getName, GenreEntity::getId));
         }
     }
 
@@ -192,20 +186,20 @@ public class CaravanTelegramBot extends TelegramWebhookBot {
         return update.getMessage() != null && update.getMessage().hasText();
     }
 
-    private FilmExtended getFilmById(String filmId) {
+    private FilmEntity getFilmById(String filmId) {
         KinopoiskApiService kinopoiskApiService = new KinopoiskApiService(apiToken, 15000);
-        return FilmExtendedMapper.mapToFilmExtendedEntity(
+        return FilmMapper.mapToFilmEntity(
                 kinopoiskApiService.getFilm(Integer.parseInt(filmId), new ArrayList<>()).getOrNull()
         );
     }
 
-    private InlineKeyboardMarkup getFilmsButtons(List<Film> films) {
+    private InlineKeyboardMarkup getFilmsButtons(List<FilmEntity> films) {
         InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
         List<InlineKeyboardButton> keyboardRow = new ArrayList<>();
 
         for (int i = 0; i < films.size(); i++) {
             keyboardRow.add(new InlineKeyboardButton()
-                    .setCallbackData(String.valueOf(films.get(i).getFilmId()))
+                    .setCallbackData(String.valueOf(films.get(i).getKinopoiskId()))
                     .setText(String.valueOf(i + 1)));
         }
 
@@ -214,22 +208,22 @@ public class CaravanTelegramBot extends TelegramWebhookBot {
     }
 
     private InlineKeyboardMarkup getFilmKeyboardMarkup(String filmId) {
-        FilmExtended film = getFilmById(filmId);
+        FilmEntity film = getFilmById(filmId);
         InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
 
         List<InlineKeyboardButton> firstKeyboardRow = Arrays.asList(
                 new InlineKeyboardButton()
-                        .setCallbackData("s/" + film.getFilmId())
+                        .setCallbackData("s/" + film.getKinopoiskId())
                         .setText("Похожее"),
                 new InlineKeyboardButton()
-                        .setCallbackData("d/" + film.getFilmId())
+                        .setCallbackData("d/" + film.getKinopoiskId())
                         .setText("Подробнее")
         );
 
         List<InlineKeyboardButton> secondKeyboardRow = Collections.singletonList(
                 new InlineKeyboardButton()
-                        .setUrl(film.getWebUrl())
-                        .setText("На Кинопоиск")
+                        .setUrl("https://nono.games/film/" + filmId)
+                        .setText("Смотреть фильм")
         );
 
         inlineKeyboardMarkup.setKeyboard(Arrays.asList(firstKeyboardRow, secondKeyboardRow));
@@ -250,49 +244,57 @@ public class CaravanTelegramBot extends TelegramWebhookBot {
         return null;
     }
 
-    private List<Film> getFilmsByKeyword(String keyword) {
+    private List<FilmEntity> getFilmsByKeyword(String keyword) {
         KinopoiskApiService kinopoiskApiService = new KinopoiskApiService(apiToken, 15000);
         SearchResult searchResult = kinopoiskApiService.searchByKeyword(keyword, 1).getOrNull();
         if (searchResult != null) {
             List<SearchItem> films = searchResult.getFilms();
             int filmsQuantity = films.size();
-
+            AtomicInteger atomicInteger = new AtomicInteger();
             return films.stream()
-                    .map(FilmMapper::mapToFilmEntity)
+                    .map(film -> FilmMapper.mapToFilmEntity(film, atomicInteger.incrementAndGet()))
                     .collect(Collectors.toList())
                     .subList(0, Math.min(filmsQuantity, 8));
         }
         return Collections.emptyList();
     }
 
-    private List<Film> getFilmsByFilters(List<Genre> genres) throws IOException {
-        StringBuilder param = new StringBuilder();
-        for (Genre i : genres) {
-            for (Genre j : this.genres.getGenres()) {
-                if (i.getGenre().equals(j.getGenre())) {
-                    param.append(j.getId()).append(",");
-                }
-            }
-        }
-
-        String url = "https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-filters?genre=" + param;
-
-        HttpClient client = HttpClients.custom().build();
-        HttpUriRequest request = RequestBuilder.get()
-                .setUri(url)
-                .setHeader("X-API-KEY", apiToken)
-                .build();
-        HttpResponse response = client.execute(request);
-        HttpEntity entity = response.getEntity();
-        String responseString = EntityUtils.toString(entity, "UTF-8");
-        Gson g = new Gson();
-        SimilarResult searchResult = g.fromJson(responseString, SimilarResult.class);
+    private List<FilmEntity> getFilmsByFilters() {
+        KinopoiskApiServiceForSimilarFilms service = new KinopoiskApiServiceForSimilarFilms();
+        SearchResult searchResult = service.searchByKeyword(getGenresIdsAsString()).getOrNull();
 
         if (searchResult != null) {
-            return searchResult.getFilms().subList(0, Math.min(searchResult.getFilms().size(), 8));
-        }
+            AtomicInteger number = new AtomicInteger();
+            return searchResult.getFilms()
+                    .stream()
+                    .map(film -> FilmMapper.mapToFilmEntity(film, 0))
+                    .filter(filmEntity -> isNotSame(filmEntity, number))
+                    .collect(Collectors.toList())
+                    .subList(0, Math.min(searchResult.getFilms().size(), 8));
 
+        }
         return Collections.emptyList();
+    }
+
+    private String getGenresIdsAsString() {
+        List<String> currentFilmGenres = lastClickedFilm.getGenreNames();
+        List<String> genreStrings = new ArrayList<>();
+        Integer genreId;
+        for (String genre : currentFilmGenres) {
+            genreId = genres.get(genre);
+            if (genreId != null) {
+                genreStrings.add(String.valueOf(genreId));
+            }
+        }
+        return String.join("%2C", genreStrings);
+    }
+
+    private boolean isNotSame(FilmEntity similarFilm, AtomicInteger atomicInteger) {
+        boolean isNotSame = similarFilm != null && similarFilm.getKinopoiskId() != lastClickedFilm.getKinopoiskId();
+        if (isNotSame) {
+            similarFilm.setNumber(atomicInteger.incrementAndGet());
+        }
+        return isNotSame;
     }
 }
 
