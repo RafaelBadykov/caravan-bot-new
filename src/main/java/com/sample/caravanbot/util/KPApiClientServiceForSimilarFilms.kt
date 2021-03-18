@@ -6,7 +6,6 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.github.kittinunf.fuel.httpGet
 import com.truedev.kinoposk.api.model.Result
 
-//TODO (Можно всю логику скопировать и библиотеку удалить)
 /**
  * Copy of KPApiClientService
  * @see com.truedev.kinoposk.api.service.KPApiClientService

@@ -11,7 +11,6 @@ public class GenreEntity {
 
     @SuppressWarnings("unused")
     public GenreEntity() {
-        //Нужно для com.sample.caravanbot.CaravanTelegramBot (178:88)
     }
 
     public GenreEntity(int id, String name) {

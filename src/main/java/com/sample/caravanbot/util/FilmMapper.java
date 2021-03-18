@@ -19,11 +19,11 @@ public class FilmMapper {
             return FilmEntity.builder()
                     .number(number)
                     .kinopoiskId(film.getKinopoiskId())
-                    .nameRu(film.getNameRu())
-                    .nameEn(film.getNameEn())
-                    .year(film.getYear())
-                    .rating(film.getRating())
-                    .posterUrl(film.getPosterUrl())
+                    .nameRu(getValueOrEmpty(film.getNameRu()))
+                    .nameEn(getValueOrEmpty(film.getNameEn()))
+                    .year(getValueOrEmpty(film.getYear()))
+                    .rating(getValueOrEmpty(film.getRating()))
+                    .posterUrl(getValueOrEmpty(film.getPosterUrl()))
                     .build();
         }
         return FilmEntity.builder().kinopoiskId(-1).build();
@@ -35,15 +35,15 @@ public class FilmMapper {
             return FilmEntity.builder()
                     .number(1)
                     .kinopoiskId(data.getKinopoiskId())
-                    .nameRu(data.getNameRu())
-                    .nameEn(data.getNameEn())
-                    .description(data.getDescription())
-                    .year(data.getYear())
-                    .rating(data.getRatingMpaa())
-                    .posterUrl(data.getPosterUrl())
+                    .nameRu(getValueOrEmpty(data.getNameRu()))
+                    .nameEn(getValueOrEmpty(data.getNameEn()))
+                    .description(getValueOrEmpty(data.getDescription()))
+                    .year(getValueOrEmpty(data.getYear()))
+                    .rating(getValueOrEmpty(data.getRatingMpaa()))
+                    .posterUrl(getValueOrEmpty(data.getPosterUrl()))
                     .genres(mapToGenre(data.getGenres()))
                     .facts(data.getFacts())
-                    .length(data.getFilmLength())
+                    .length(getValueOrEmpty(data.getFilmLength()))
                     .build();
         }
         return FilmEntity.builder().kinopoiskId(-1).build();
@@ -55,5 +55,11 @@ public class FilmMapper {
                 .filter(Objects::nonNull)
                 .map(genre -> new GenreEntity(genre.getId(), genre.getGenre()))
                 .collect(Collectors.toList());
+    }
+
+    private static String getValueOrEmpty(String value) {
+        if (value == null || "".equals(value) || "null".equals(value)) {
+            return "Отсутствует";
+        } else return value;
     }
 }

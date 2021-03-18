@@ -79,12 +79,4 @@ public class FilmEntity {
                 .map(String::toLowerCase)
                 .collect(Collectors.toList());
     }
-
-    // мб потом как-то используем, пока так
-    @SuppressWarnings("unused")
-    protected String getValueOrEmpty(String value) {
-        if ("".equals(value)) {
-            return "Отсутствует";
-        } else return value;
-    }
 }

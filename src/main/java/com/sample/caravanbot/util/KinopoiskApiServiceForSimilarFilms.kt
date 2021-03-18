@@ -8,7 +8,7 @@ import com.truedev.kinoposk.api.model.search.movie.keyword.SearchResult
  * Copy of KinopoiskApiService
  * @see com.truedev.kinoposk.api.service.KinopoiskApiService
  */
-class KinopoiskApiServiceForSimilarFilms(timeoutMs: Int = 15000) {
+class KinopoiskApiServiceForSimilarFilms(timeoutMs: Int = 150000) {
 
     private val kpApiClientService: KPApiClientServiceForSimilarFilms =
         KPApiClientServiceForSimilarFilms(timeoutMs)
