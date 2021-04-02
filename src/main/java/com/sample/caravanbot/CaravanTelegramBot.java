@@ -198,9 +198,7 @@ public class CaravanTelegramBot extends TelegramWebhookBot {
 
 
     private void initDefaults(Message message) {
-        if (chatId == -1) {
             chatId = message.getChatId();
-        }
     }
 
     private void initGenres() throws IOException {
