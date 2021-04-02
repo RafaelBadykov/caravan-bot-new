@@ -19,5 +19,15 @@
       "name": "telegrambot.apiToken",
       "type": "java.lang.String",
       "description": "Description for telegrambot.apiToken."
+    },
+    {
+      "name": "pingtask.period",
+      "type": "java.lang.String",
+      "description": "Description for pingtask.period."
+    },
+    {
+      "name": "pingtask.url",
+      "type": "java.lang.String",
+      "description": "Description for pingtask.url."
     }
   ] }

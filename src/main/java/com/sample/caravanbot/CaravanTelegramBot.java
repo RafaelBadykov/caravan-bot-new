@@ -157,7 +157,9 @@ public class CaravanTelegramBot extends TelegramWebhookBot {
                 break;
             }
             case "/info": {
-                printMessage("Info");
+                printMessage("Привет. Тебя приветствует приложение команды Caravan." +
+                        " Для того чтобы найти рандомный фильм, используйте команду /random" +
+                        "Для того чтобы найти фильм введите его название. Хорошего пользования.");
                 break;
             }
             case "/random": {
